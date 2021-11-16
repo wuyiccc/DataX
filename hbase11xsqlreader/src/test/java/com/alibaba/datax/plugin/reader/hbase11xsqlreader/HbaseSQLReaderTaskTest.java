@@ -31,7 +31,7 @@ public class HbaseSQLReaderTaskTest {
         return splits;
     }
 
-    @Test
+    //@Test
     public void testReadRecord() throws Exception {
         List<Configuration> splits = this.generateSplitConfig();
 

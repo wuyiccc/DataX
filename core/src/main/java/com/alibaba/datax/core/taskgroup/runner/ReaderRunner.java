@@ -89,6 +89,7 @@ public class ReaderRunner extends AbstractRunner implements Runnable {
         }
     }
 
+    @Override
     public void shutdown(){
         recordSender.shutdown();
     }

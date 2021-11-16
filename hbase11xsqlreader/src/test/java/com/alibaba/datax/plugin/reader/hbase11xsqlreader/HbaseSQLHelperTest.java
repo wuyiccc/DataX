@@ -21,7 +21,7 @@ public class HbaseSQLHelperTest {
             "    }";
 
 
-    @Test
+    //@Test
     public void testParseConfig() {
         Configuration config = Configuration.from(jsonStr);
         HbaseSQLReaderConfig readerConfig = HbaseSQLHelper.parseConfig(config);
@@ -30,7 +30,7 @@ public class HbaseSQLHelperTest {
         assertEquals("hb-proxy-pub-xxx-001.hbase.rds.aliyuncs.com,hb-proxy-pub-xxx-002.hbase.rds.aliyuncs.com,hb-proxy-pub-xxx-003.hbase.rds.aliyuncs.com:2181", readerConfig.getZkUrl());
     }
 
-    @Test
+    //@Test
     public void testSplit() {
         Configuration config = Configuration.from(jsonStr);
         HbaseSQLReaderConfig readerConfig = HbaseSQLHelper.parseConfig(config);

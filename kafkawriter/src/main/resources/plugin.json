@@ -1,0 +1,10 @@
+{
+    "name": "kafkawriter",
+    "class": "com.alibaba.datax.plugin.writer.kafkawriter.KafkaWriter",
+    "description": {
+        "useScene": "kafka stream.",
+        "mechanism": "use datax framework to transport data from kafka stream.",
+        "warn": "a new plugin."
+    },
+    "developer": "alibaba"
+}

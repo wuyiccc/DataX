@@ -1,0 +1,7 @@
+{
+    "name": "kafkawriter",
+    "parameter": {
+        "encoding": "",
+        "print": true
+    }
+}
