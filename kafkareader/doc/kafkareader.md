@@ -1,19 +1,19 @@
-# DataX StreamKafkaReader 说明
+# DataX KafkaReader 说明
 
 ------------
 
 ## 1 快速介绍
 
-StreamKafkaReader提供了kafka中流数据的能力。在底层实现上，StreamKafkaReader获取kafka对应topic下的数据，并转换为DataX传输协议传递给Writer。
+KafkaReader提供了kafka中流数据的能力。在底层实现上，KafkaReader获取kafka对应topic下的数据，并转换为DataX传输协议传递给Writer。
 
 **kafka中的数据应为符合要求的json格式。**
 
 
 ## 2 功能与限制
 
-StreamKafkaReader实现了从kafka中读取数据并转为DataX协议的功能。目前StreamKafkaReader支持功能如下：
+KafkaReader实现了从kafka中读取数据并转为DataX协议的功能。目前KafkaReader支持功能如下：
 
-1. 支持且仅支持读取符合要求的json格式，例如：[{"value":"hadh5" , "type":"string"} , {"value":324 , "type":"long"}]。
+1. 支持且仅支持读取符合要求的json格式，例如: {"id":"1", "name":"testname2"}。
 
    ​
 
@@ -31,61 +31,69 @@ StreamKafkaReader实现了从kafka中读取数据并转为DataX协议的功能�
 
 - ##### 1  从kafka中读取数据，写入mysql
 
-  jobkafkatomysql.json
+  kafka2mysql.json
 
-  ```json
-  {
-      "job": {
-          "setting": {
-              "speed": {
-                  "byte":10485760
-              },
-              "errorLimit": {
-                  "record": 0,
-                  "percentage": 0.02
-              }
-          },
-          "content": [
-              {
-                  "reader": {
-                      "name": "streamkafkareader",
-                      "parameter": {					
-  						"topic" : "testdata",
-  						"groupid" : "datax",
-  						"servers" : "localhost:9092",            
-                      }
-                  },
-                  "writer": {
-                      "name":"mysqlwriter",
-                      "parameter":{
-                          "column":[
-  							"name",
-                          	  "isreg",
-  							"number"
-                          ],
-                          "connection":[
-                              {
-                                  "jdbcUrl":"jdbc:mysql://localhost:3306/test2",
-                                  "table":[
-                                      "testTable"
-                                  ]
-                              }
-                          ],
-                          "password":"root",
-                          "username":"root"
-  					}
-  				}
-              }
-          ]
+ ```json
+{
+  "job": {
+    "setting": {
+      "speed": {
+        "byte":10485760
+      },
+      "errorLimit": {
+        "record": 0,
+        "percentage": 0.02
       }
+    },
+    "content": [
+      {
+        "reader": {
+          "name": "kafkareader",
+          "parameter": {
+            "topic" : "testdata",
+            "groupid" : "datax",
+            "servers" : "192.168.146.17:9092",
+            "column": [
+              {
+                "name": "id",
+                "type": "string"
+              }, {
+                "name": "name",
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "writer": {
+          "name":"mysqlwriter",
+          "parameter":{
+            "column":[
+              "id",
+              "name"
+            ],
+            "connection":[
+              {
+                "jdbcUrl":"jdbc:mysql://192.168.146.18:3307/test2",
+                "table":[
+                  "testTable"
+                ]
+              }
+            ],
+            "password":"123",
+            "username":"root"
+          }
+        }
+      }
+    ]
   }
-  ```
+} 
+ ```
 
   ​
 
   ##### 2  从kafka中读取数据，写入kafka另外一个topic
 
-  jobkafka.json
+  kafka2kafka.json
 
   ```json
   {

@@ -54,6 +54,11 @@
             <artifactId>hive-exec</artifactId>
             <version>1.1.1</version>
         </dependency>
+        <dependency>
+            <groupId>com.alibaba.datax</groupId>
+            <artifactId>plugin-unstructured-storage-util</artifactId>
+            <version>${datax-project-version}</version>
+        </dependency>
     </dependencies>
 
     <build>

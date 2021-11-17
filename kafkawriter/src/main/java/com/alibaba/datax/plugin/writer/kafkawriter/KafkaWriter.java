@@ -8,6 +8,7 @@ import com.alibaba.datax.common.plugin.RecordReceiver;
 import com.alibaba.datax.common.spi.Writer;
 import com.alibaba.datax.common.util.Configuration;
 import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.kafka.clients.producer.KafkaProducer;
@@ -17,6 +18,8 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import java.util.*;
 
 public class KafkaWriter extends Writer {
+
+
     public static class Job extends Writer.Job {
         private static final Logger LOG = LoggerFactory
                 .getLogger(Job.class);
@@ -62,7 +65,7 @@ public class KafkaWriter extends Writer {
 
         private static final String NEWLINE_FLAG = System.getProperty("line.separator", "\n");
 
-        private Configuration writerSliceConfig;
+        private Configuration taskConfig;
 
         private boolean print;
 
@@ -71,16 +74,17 @@ public class KafkaWriter extends Writer {
         private long sleepTime;
 
         private Producer producer;
+
         @Override
         public void init() {
-            this.writerSliceConfig = getPluginJobConf();
+            this.taskConfig = getPluginJobConf();
 
-            this.print = this.writerSliceConfig.getBool(Key.PRINT, true);
+            this.print = this.taskConfig.getBool(Key.PRINT, true);
 
-            this.recordNumBeforSleep = this.writerSliceConfig.getLong(Key.RECORD_NUM_BEFORE_SLEEP, 0);
-            this.sleepTime = this.writerSliceConfig.getLong(Key.SLEEP_TIME, 0);
+            this.recordNumBeforSleep = this.taskConfig.getLong(Key.RECORD_NUM_BEFORE_SLEEP, 0);
+            this.sleepTime = this.taskConfig.getLong(Key.SLEEP_TIME, 0);
 
-            String servers = this.writerSliceConfig.getString(Key.SERVERS);
+            String servers = this.taskConfig.getString(Key.SERVERS);
             Properties props = new Properties();
             props.put("bootstrap.servers", servers);
             props.put("acks", "all");
@@ -93,10 +97,10 @@ public class KafkaWriter extends Writer {
 
             this.producer = new KafkaProducer<>(props);
 
-            if(recordNumBeforSleep < 0) {
+            if (recordNumBeforSleep < 0) {
                 throw DataXException.asDataXException(KafkaWriterErrorCode.CONFIG_INVALID_EXCEPTION, "recordNumber 不能为负值");
             }
-            if(sleepTime <0) {
+            if (sleepTime < 0) {
                 throw DataXException.asDataXException(KafkaWriterErrorCode.CONFIG_INVALID_EXCEPTION, "sleep 不能为负值");
             }
         }
@@ -107,36 +111,36 @@ public class KafkaWriter extends Writer {
 
         @Override
         public void startWrite(RecordReceiver recordReceiver) {
-                System.out.println("start write");
+            LOG.info("#### start kafkawrite...");
 
-                try {
-                    Record record;
+            try {
+                Record record;
 
-                    // 从reader读取到数据
-                    while ((record = recordReceiver.getFromReader()) != null) {
-                        System.out.println("kafkawriter  读取到一条数据 :\n"+ record);
-                        if (this.print) {
-                            writeToKafka(recordToString(record));
-                        } else {
-                    /* do nothing */
-                        }
+                // 从reader读取到数据
+                while ((record = recordReceiver.getFromReader()) != null) {
+                    LOG.info("#### kafkawriter get one message: {}", record.toString());
+                    if (this.print) {
+                        writeToKafka(recordToString(record, this.taskConfig));
+                    } else {
+                        /* do nothing */
                     }
-
-                } catch (Exception e) {
-
-                    throw DataXException.asDataXException(KafkaWriterErrorCode.RUNTIME_EXCEPTION, e);
-
                 }
+
+            } catch (Exception e) {
+
+                throw DataXException.asDataXException(KafkaWriterErrorCode.RUNTIME_EXCEPTION, e);
+
+            }
         }
 
         // 写入kafka
-        private void writeToKafka(String recordString){
+        private void writeToKafka(String recordString) {
             // 初始化producer相关配置
-            this.writerSliceConfig = super.getPluginJobConf();
+            this.taskConfig = super.getPluginJobConf();
 
-            String topic = this.writerSliceConfig.getString(Key.TOPIC);
+            String topic = this.taskConfig.getString(Key.TOPIC);
 
-            System.out.println("send to kakfa " + topic+ " ");
+            LOG.info("#### kafkawriter send {} to kafka...", recordString);
             // 发送到kafka通道
             this.producer.send(new ProducerRecord<String, String>(topic, "kafkawriter", recordString));
         }
@@ -151,25 +155,38 @@ public class KafkaWriter extends Writer {
         }
 
         // 将record组织成[{"value":"hadh5" , "type":"string"} , {"value":324 , "type":"long"}]的string
-        private String recordToString(Record record) {
+        private String recordToString(Record record, Configuration writerSliceConfig) {
             int recordLength = record.getColumnNumber();
             if (0 == recordLength) {
                 return NEWLINE_FLAG;
             }
-            Column column;
-            List dataList = new ArrayList();
-            for (int i = 0; i < recordLength; i++) {
-                column = record.getColumn(i);
-                Map tmpmap = new HashMap<>();
-                tmpmap.put("value",column.getRawData());
-                tmpmap.put("type",column.getType());
-                dataList.add(tmpmap);
-            }
-            String jsonStr = JSON.toJSON(dataList).toString();
-            System.out.println(jsonStr);
-            return jsonStr;
 
+            List<KafkaColumnEntry> columnList = getListColumnEntry(writerSliceConfig, com.alibaba.datax.plugin.unstructuredstorage.reader.Key.COLUMN);
+            Map<String, Object> kafkaMessageMap = new HashMap<>();
+            if (columnList != null) {
+                for (int i = 0; i < columnList.size(); i++) {
+                    KafkaColumnEntry kafkaColumnEntry = columnList.get(i);
+                    String name = kafkaColumnEntry.getName();
+                    Object value = record.getColumn(i).getRawData();
+                    kafkaMessageMap.put(name, value);
+                }
+            }
+            return JSON.toJSONString(kafkaMessageMap);
+        }
+
+        public static List<KafkaColumnEntry> getListColumnEntry(Configuration configuration, final String path) {
+            List<JSONObject> lists = configuration.getList(path, JSONObject.class);
+            if (lists == null) {
+                return null;
+            }
+            List<KafkaColumnEntry> result = new ArrayList<>();
+            for (final JSONObject object : lists) {
+                KafkaColumnEntry kafkaColumnEntry = JSON.parseObject(object.toJSONString(), KafkaColumnEntry.class);
+                result.add(kafkaColumnEntry);
+            }
+            return result;
         }
     }
+
 
 }
